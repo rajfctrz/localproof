@@ -2,21 +2,9 @@
 
 Things that stopped a verification step. Each one says what was tried and how to unblock it.
 
-## 1. CI could not run: the `gh` token lacks the `workflow` scope
+## 1. CI push blocked by token scope (resolved)
 
-- **What happened:** the private CI repo `rajfctrz/localproof-ci` was created, but `git push ci main` was rejected:
-  `refusing to allow an OAuth App to create or update workflow .github/workflows/build.yml without workflow scope`.
-  GitHub requires the `workflow` scope for any push that adds or changes a file under `.github/workflows/`, so no commit containing the workflow can be pushed with the current token.
-- **Token scopes found:** account `rajfctrz` (active): `gist, read:org, repo`. A second login on this machine, `rajeshmr`, has `workflow`, but it is a different identity, so it was not switched to without the owner's decision.
-- **Effect:** none of the GitHub Actions jobs (Windows, macOS x86_64, AppImage x86_64, Flatpak x86_64, release/SBOM) has run. Everything that needed CI is listed in [MANUAL_CHECKS.md](MANUAL_CHECKS.md).
-- **To unblock** (either):
-  ```bash
-  gh auth refresh -h github.com -s workflow     # interactive: approve in the browser
-  git push ci main
-  gh run watch -R rajfctrz/localproof-ci
-  ```
-  or push with the account that has the scope (`gh auth switch -u rajeshmr`), after giving it access to the repo.
-- **Cost note:** on a private repo, GitHub bills macOS runner minutes at 10x. One full run uses roughly 2 macOS jobs x ~10 min.
+The first push to `rajfctrz/localproof-ci` was rejected because the `gh` token lacked the `workflow` scope. Resolved by the owner running `gh auth refresh -h github.com -s workflow`; CI then went green on the third run (`40876024501`).
 
 ## 2. DMG Finder layout step times out locally (not blocking)
 

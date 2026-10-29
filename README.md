@@ -153,7 +153,7 @@ flatpak run --env=LOCALPROOF_ALLOW_NETWORK=1 io.github.OWNER.LocalProof --probe-
 - **Unsigned builds** trigger SmartScreen and Gatekeeper warnings until you add signing.
 - **The SBOM** is generated from the runtime requirements on Linux; platform-only packages (pyobjc on macOS, pythonnet on Windows) are listed by each build's `--self-audit`.
 
-What is and isn't verified yet on each platform: [docs/MANUAL_CHECKS.md](docs/MANUAL_CHECKS.md) and [docs/BLOCKERS.md](docs/BLOCKERS.md). How it works: [docs/how-it-works.md](docs/how-it-works.md).
+Verification status: every package is built and checked in CI on Windows, macOS (arm64 and x86_64), Ubuntu 22.04 and the GNOME 50 Flatpak runtime, including the Windows firewall rule and the Flatpak sandbox blocking a connection with the Python guard switched off. What still needs a person (UAC on a non-admin account, SmartScreen and Gatekeeper on downloads, clicking through the UI, other Linux distributions) is in [docs/MANUAL_CHECKS.md](docs/MANUAL_CHECKS.md). How it works: [docs/how-it-works.md](docs/how-it-works.md).
 
 ## License
 
