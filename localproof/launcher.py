@@ -253,6 +253,14 @@ def serve_smoke(running: RunningServer) -> int:
 def _parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(prog="LocalProof", description="Local-only desktop app.")
     parser.add_argument("--version", action="store_true", help="print the version and exit")
+    parser.add_argument("--self-audit", action="store_true", help="print a verification report and exit (0 = enforced, 2 = guard only)")
+    parser.add_argument(
+        "--probe-outbound",
+        nargs="?",
+        const="example.com:443",
+        metavar="HOST:PORT",
+        help="try one TCP connection and report what stopped it (use with LOCALPROOF_ALLOW_NETWORK=1 to test the OS layer)",
+    )
     parser.add_argument("--window-smoke", action="store_true", help="open the window, check it loads, close (dev/CI)")
     parser.add_argument("--serve-smoke", action="store_true", help="start the server without a window, check it, exit (CI)")
     # PyInstaller on macOS can pass -psn_* when launched from Finder; ignore unknown args.
@@ -262,9 +270,25 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(sys.argv[1:] if argv is None else argv)
+    if args.version or args.self_audit or args.probe_outbound:
+        from localproof import winconsole
+
+        winconsole.ensure_stdio()
     if args.version:
         print(f"LocalProof {__version__}")
         return EXIT_OK
+    if args.self_audit:
+        from localproof import selfaudit
+
+        return selfaudit.run(sys.stdout)
+    if args.probe_outbound:
+        from localproof import probe
+
+        try:
+            return probe.run(args.probe_outbound, sys.stdout)
+        except ValueError as exc:
+            print(f"--probe-outbound: {exc}", file=sys.stderr)
+            return EXIT_FAILURE
 
     _configure_logging()
     running = start_server(record_requests=args.window_smoke)

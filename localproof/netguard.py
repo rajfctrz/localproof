@@ -82,12 +82,16 @@ class Attempt:
 
     @property
     def origin(self) -> str:
-        """Innermost frame outside the standard library: who asked for the connection."""
-        for frame in reversed(self.stack):
-            # site-packages lives under the stdlib dir, but a third-party library is a real origin.
-            if not frame.startswith(_STDLIB_PREFIXES) or "site-packages" in frame:
-                return frame
-        return self.stack[-1] if self.stack else ""
+        return origin_of(self.stack)
+
+
+def origin_of(stack: "tuple[str, ...] | list[str]") -> str:
+    """Innermost frame outside the standard library: who asked for the connection."""
+    for frame in reversed(stack):
+        # site-packages lives under the stdlib dir, but a third-party library is a real origin.
+        if not frame.startswith(_STDLIB_PREFIXES) or "site-packages" in frame:
+            return frame
+    return stack[-1] if stack else ""
 
 
 @dataclass(frozen=True)

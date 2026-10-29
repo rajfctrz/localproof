@@ -83,6 +83,12 @@ def _profiles_off(output: str) -> list[str] | None:
     return off if states else None
 
 
+def rule_present(run: Runner = _run) -> bool:
+    """True if any firewall rule with our name exists (any state)."""
+    code, output = run(SHOW_RULE)
+    return code == 0 and bool(parse_rules(output))
+
+
 def detect(run: Runner = _run, executable: str | None = None, frozen: bool | None = None) -> EnforcementStatus:
     frozen = getattr(sys, "frozen", False) if frozen is None else frozen
     executable = executable or sys.executable
