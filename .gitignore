@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Flask
+instance/
+.webassets-cache
+.flaskenv
+.env
+.env.*
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# PyInstaller / Inno Setup build output (packaging/localproof.spec is tracked)
+build/
+dist/
+Output/
+
+# SBOM output
+sbom*.json
+sbom*.xml
+
+# Local user data from dev runs
+uploads/
+exports/
+*.log
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
