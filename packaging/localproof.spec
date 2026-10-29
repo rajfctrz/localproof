@@ -1,10 +1,10 @@
 # PyInstaller spec for LocalProof (onedir). Build from the repo root:
 #   python packaging/write_build_info.py && pyinstaller --noconfirm packaging/localproof.spec
 # Output: dist/LocalProof/ (Windows, Linux) or dist/LocalProof.app (macOS).
-import re
 import sys
 from pathlib import Path
 
+from packaging.requirements import Requirement
 from PyInstaller.utils.hooks import copy_metadata
 
 ROOT = Path(SPECPATH).parent
@@ -18,11 +18,15 @@ IS_MAC = sys.platform == "darwin"
 
 
 def runtime_requirements():
+    """Requirement names for this platform (environment markers honoured)."""
     names = []
     for line in (ROOT / "requirements.txt").read_text().splitlines():
         line = line.split("#", 1)[0].strip()
-        if line:
-            names.append(re.split(r"[=<>!~;\[ ]", line, maxsplit=1)[0])
+        if not line:
+            continue
+        req = Requirement(line)
+        if req.marker is None or req.marker.evaluate():
+            names.append(req.name)
     return names
 
 
