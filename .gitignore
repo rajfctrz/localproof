@@ -28,10 +28,14 @@ coverage.xml
 .mypy_cache/
 .ruff_cache/
 
-# PyInstaller / Inno Setup build output (packaging/localproof.spec is tracked)
+# PyInstaller / Inno Setup / AppImage / Flatpak build output (packaging/localproof.spec is tracked)
 build/
 dist/
 Output/
+build-flatpak/
+.flatpak-builder/
+*.AppImage
+*.dmg
 
 # SBOM output
 sbom*.json
