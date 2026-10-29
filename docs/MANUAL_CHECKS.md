@@ -22,6 +22,7 @@ Earlier runs: [`40873616205`](https://github.com/rajfctrz/localproof-ci/actions/
 | Target | Where | What ran |
 |---|---|---|
 | macOS arm64, source + `.app` + DMG | this Mac (macOS 14) | `scripts/verify.sh` (tests, no-outbound grep, browser mode, window, self-audit exit 2); frozen app checks with the self-audit hash matching `shasum`; `verify_dmg.sh --window`; 0 outbound attempts in the app's audit log |
+| macOS arm64, interactive use of `dist/LocalProof.app` | this Mac, by the owner (2026-10-29) | app opened from the local build after `--self-audit` exit 2; the owner clicked through the window and reported it working (the per-step list below was not recorded item by item) |
 | Linux aarch64, source + frozen + AppImage | native arm64 `ubuntu:22.04` container | PyGObject 3.50.1 + WebKit2 4.1; tests; window smoke (source, frozen, AppImage) under Xvfb; self-audit exit 2 |
 | Linux aarch64 Flatpak | native arm64 GNOME 50 container | build + install; no network permission; self-audit exit 0; probe `no_network`; window smoke inside the sandbox (with an aarch64 `python-deps.json` in a scratch copy) |
 
@@ -83,7 +84,7 @@ flatpak run --env=LOCALPROOF_ALLOW_NETWORK=1 io.github.OWNER.LocalProof --probe-
 flatpak run io.github.OWNER.LocalProof                                     # expect the window; Open data folder via the portal
 ```
 
-### Interactive use in the native window (all OSes)
+### Interactive use in the native window (Windows, Linux; macOS arm64 owner-checked above)
 
 The window smoke tests confirm each page and its assets load in the native WebView; they do not click through the UI. In the native window, check by hand: upload a CSV; change the horizon; **Export to Excel** → **Open in Excel**; **Save a copy elsewhere** (WebView download); Trust Panel → **Try it** (counter +1), **Open data folder**, retention **Save**, **Delete all my data** with the checkbox. Expect each to behave as in browser mode, where they are covered by tests.
 
