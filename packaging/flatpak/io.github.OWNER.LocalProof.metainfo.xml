@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.OWNER.LocalProof</id>
+  <name>LocalProof</name>
+  <summary>Cash flow forecasts that never leave this computer</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <description>
+    <p>
+      A desktop cash flow forecast whose "your data never leaves this machine" claim you can verify.
+      This Flatpak has no network permission, and the built-in Trust Panel and --self-audit show it.
+    </p>
+  </description>
+  <launchable type="desktop-id">io.github.OWNER.LocalProof.desktop</launchable>
+  <url type="homepage">https://github.com/OWNER/localproof</url>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="0.1.0" date="2026-10-29"/>
+  </releases>
+</component>

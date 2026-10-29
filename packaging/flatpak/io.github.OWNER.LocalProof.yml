@@ -1,0 +1,49 @@
+# Flatpak manifest for LocalProof: the recommended, enforced Linux channel.
+# Replace OWNER in the app ID (and file names) with your GitHub user or org.
+#
+# There is deliberately NO --share=network below: the app gets its own network
+# namespace with only a loopback interface, so nothing inside the sandbox
+# (Python, WebKit, native code) can reach the network. The app's own server on
+# 127.0.0.1 still works because loopback stays inside the sandbox.
+#
+# Build:   flatpak-builder --user --install --force-clean build-flatpak packaging/flatpak/io.github.OWNER.LocalProof.yml
+# Verify:  flatpak info --show-permissions io.github.OWNER.LocalProof
+app-id: io.github.OWNER.LocalProof
+runtime: org.gnome.Platform
+runtime-version: '50'
+sdk: org.gnome.Sdk
+command: localproof
+finish-args:
+  - --socket=wayland
+  - --socket=fallback-x11
+  # X11 shared memory; IPC namespace only, not network access.
+  - --share=ipc
+  - --device=dri
+  # Read-only access to ~/Documents for CSV import.
+  - --filesystem=xdg-documents:ro
+modules:
+  # Pinned wheels/sdists with sha256, generated from requirements.txt by
+  # packaging/flatpak/generate_python_deps.py. PyGObject comes from the runtime.
+  - python-deps.json
+
+  - name: localproof
+    buildsystem: simple
+    build-commands:
+      - install -d /app/share/localproof
+      - cp -r app localproof sample_data /app/share/localproof/
+      - rm -f /app/share/localproof/localproof/_build_info.py
+      - python3 packaging/write_build_info.py && mv localproof/_build_info.py /app/share/localproof/localproof/
+      - install -Dm755 packaging/flatpak/localproof.sh /app/bin/localproof
+      - install -Dm644 packaging/linux/localproof.svg /app/share/icons/hicolor/scalable/apps/io.github.OWNER.LocalProof.svg
+      - install -Dm644 packaging/flatpak/io.github.OWNER.LocalProof.desktop /app/share/applications/io.github.OWNER.LocalProof.desktop
+      - install -Dm644 packaging/flatpak/io.github.OWNER.LocalProof.metainfo.xml /app/share/metainfo/io.github.OWNER.LocalProof.metainfo.xml
+    sources:
+      - type: dir
+        path: ../..
+        skip:
+          - .git
+          - .venv
+          - build
+          - build-flatpak
+          - .flatpak-builder
+          - dist

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=LocalProof
+Comment=Cash flow forecasts that never leave this computer
+Exec=localproof
+Icon=io.github.OWNER.LocalProof
+Categories=Office;Finance;
+Terminal=false
