@@ -66,7 +66,8 @@ def installed_packages() -> list[str]:
 
 
 def _line(out: TextIO, label: str, value: object) -> None:
-    print(f"{label + ':':<{LABEL_WIDTH}}{value}", file=out)
+    # Long labels (e.g. an AppImage file name) still get a space before the value.
+    print(f"{label + ':':<{LABEL_WIDTH - 1}} {value}", file=out)
 
 
 def run(out: TextIO) -> int:

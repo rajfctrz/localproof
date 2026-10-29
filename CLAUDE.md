@@ -36,6 +36,7 @@ flask --app app run                      # browser dev mode (fastest iteration)
 python -m localproof.launcher            # native window mode
 python -m localproof.launcher --self-audit
 pytest -q
+scripts/verify.sh python                 # tests + no-outbound grep + browser + window + self-audit
 pyinstaller packaging/localproof.spec    # per-OS build; Windows/macOS run in CI
 flatpak-builder --user --install --force-clean build-flatpak packaging/flatpak/<app-id>.yml
 ```

@@ -29,6 +29,14 @@ def test_report_lists_every_required_section(monkeypatch):
     assert "flask==" in text.lower() and "pandas==" in text.lower()
 
 
+def test_long_labels_keep_a_space_before_the_value():
+    import io
+
+    out = io.StringIO()
+    selfaudit._line(out, "SHA-256 of LocalProof-0.1.0-x86_64.AppImage", "abc")
+    assert out.getvalue() == "SHA-256 of LocalProof-0.1.0-x86_64.AppImage: abc\n"
+
+
 def test_exit_0_only_when_enforced_and_guard_active(monkeypatch):
     assert audit(monkeypatch, ENFORCED)[0] == selfaudit.EXIT_ENFORCED
 

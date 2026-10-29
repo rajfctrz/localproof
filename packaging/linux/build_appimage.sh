@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Wrap the PyInstaller onedir build (dist/LocalProof) into an AppImage.
 # Build on Ubuntu 22.04 for older-glibc compatibility. Needs appimagetool on PATH
-# or APPIMAGETOOL pointing at it.
+# or APPIMAGETOOL pointing at it, plus desktop-file-validate (desktop-file-utils):
+# appimagetool aborts without it.
 #
 # The AppImage is the convenience channel: no sandbox, so it is "guard only".
 # The window uses the host's GTK 3 + WebKit2GTK 4.1 stack as bundled by PyInstaller.
