@@ -4,7 +4,7 @@ What has actually been run, where, and what is still unverified. Nothing in the 
 
 ## Verified
 
-### In CI: run [`40876024501`](https://github.com/rajfctrz/localproof-ci/actions/runs/40876024501), private repo `rajfctrz/localproof-ci`, all six jobs green
+### In CI: run [`40905976169`](https://github.com/rajfctrz/localproof/actions/runs/40905976169), all six jobs green
 
 | Job | What ran and passed |
 |---|---|
@@ -15,7 +15,7 @@ What has actually been run, where, and what is still unverified. Nothing in the 
 | `flatpak` (GNOME 50 container, x86_64, committed `python-deps.json`) | build + install; permissions `shared=ipc;`; `--self-audit` **exit 0, ENFORCED**; `--serve-smoke`; `--probe-outbound` with the guard overridden → **`no_network`** |
 | `release` | CycloneDX SBOM; `SHA256SUMS` for the installer, both DMGs, the AppImage, the Flatpak, `LocalProof.exe` and the SBOM |
 
-Earlier runs: [`40873616205`](https://github.com/rajfctrz/localproof-ci/actions/runs/40873616205) (PyInstaller spec ignored environment markers, fixed), [`40874509364`](https://github.com/rajfctrz/localproof-ci/actions/runs/40874509364) (all Windows checks passed; the uninstall step inherited netsh's expected exit code 1, fixed).
+Before the repo went public, CI ran in a temporary private repo (since deleted). Two runs there failed and were fixed: the PyInstaller spec ignored environment markers, and the Windows uninstall step inherited netsh's expected exit code 1. The third run there went green, as has every run since.
 
 ### Locally
 

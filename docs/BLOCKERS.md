@@ -4,7 +4,7 @@ Things that stopped a verification step. Each one says what was tried and how to
 
 ## 1. CI push blocked by token scope (resolved)
 
-The first push to `rajfctrz/localproof-ci` was rejected because the `gh` token lacked the `workflow` scope. Resolved by the owner running `gh auth refresh -h github.com -s workflow`; CI then went green on the third run (`40876024501`).
+The first push of the workflow file was rejected because the `gh` token lacked the `workflow` scope. Resolved by the owner running `gh auth refresh -h github.com -s workflow`; CI went green on the third run, and on the public repo in run `40905976169`.
 
 ## 2. DMG Finder layout step times out locally (not blocking)
 
