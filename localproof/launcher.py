@@ -173,10 +173,12 @@ def run_window(running: RunningServer) -> int:
     return EXIT_OK
 
 
-# Paths the native WebView must fetch for the index and forecast pages to render.
+# Pages the smoke test navigates to, and what the native WebView must fetch for each.
 SMOKE_INDEX_ASSETS = ("/", "/static/css/app.css")
-SMOKE_FORECAST_PATH = "/forecast/sample?horizon=12"
-SMOKE_FORECAST_ASSETS = ("/forecast/sample", "/static/vendor/chart.umd.js", "/static/js/forecast-chart.js")
+SMOKE_PAGES = (
+    ("/forecast/sample?horizon=12", ("/forecast/sample", "/static/vendor/chart.umd.js", "/static/js/forecast-chart.js")),
+    ("/trust/", ("/trust/",)),
+)
 # Every platform WebView (WKWebView, WebView2, WebKitGTK) identifies as AppleWebKit.
 WEBVIEW_UA_MARKER = "AppleWebKit"
 
@@ -206,14 +208,16 @@ def window_smoke(running: RunningServer) -> int:
                 result["error"] = "index page did not finish loading"
                 return
             missing = _wait_for_paths(running, SMOKE_INDEX_ASSETS, WINDOW_LOAD_TIMEOUT_S)
-            if not missing:
+            for path, assets in SMOKE_PAGES:
+                if missing:
+                    break
                 # pywebview sets `loaded` only after its JS bridge injection finishes;
-                # waiting for it again means we never destroy the window mid-injection.
+                # waiting for it each time means we never destroy the window mid-injection.
                 window.events.loaded.clear()
-                window.load_url(running.url.rstrip("/") + SMOKE_FORECAST_PATH)
-                missing = _wait_for_paths(running, SMOKE_FORECAST_ASSETS, WINDOW_LOAD_TIMEOUT_S)
+                window.load_url(running.url.rstrip("/") + path)
+                missing = _wait_for_paths(running, assets, WINDOW_LOAD_TIMEOUT_S)
                 if not missing and not window.events.loaded.wait(WINDOW_LOAD_TIMEOUT_S):
-                    missing = ["(forecast page load event)"]
+                    missing = [f"(load event for {path})"]
             if missing:
                 result["error"] = f"WebView never requested {missing}"
         except Exception as exc:  # noqa: BLE001
@@ -233,7 +237,7 @@ def window_smoke(running: RunningServer) -> int:
     if "error" in result:
         print(f"window smoke FAILED: {result['error']}", file=sys.stderr)
         return EXIT_FAILURE
-    print("window smoke ok: index and forecast pages rendered in the native window")
+    print("window smoke ok: index, forecast and Trust Panel pages rendered in the native window")
     return EXIT_OK
 
 

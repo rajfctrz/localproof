@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}Trust Panel{% endblock %}
+{% block content %}
+<section class="intro" aria-labelledby="trust-heading">
+  <p class="eyebrow">Trust Panel</p>
+  <h1 id="trust-heading" class="display">What keeps your data here</h1>
+  <p class="lede">Everything below is checked live on this computer. Each claim lists a command you can run yourself to check it.</p>
+</section>
+
+{% if notice %}
+<div class="notice notice--{{ notice[0] }}" role="status"><p>{{ notice[1] }}</p></div>
+{% endif %}
+
+<section class="tier tier--{{ status.tier }}" aria-labelledby="tier-heading">
+  <div class="tier__head">
+    <p class="tier__kicker">Network enforcement</p>
+    <h2 id="tier-heading" class="tier__label">{{ status.label }}</h2>
+    <p class="tier__mechanism">{{ status.mechanism }}</p>
+  </div>
+  <p class="tier__notes">{{ status.notes }}</p>
+  {% if status.verify_steps %}
+  <div class="tier__verify">
+    <p class="tier__verify-title">Verify it yourself</p>
+    <ol class="commands">
+      {% for step in status.verify_steps %}<li><code>{{ step }}</code></li>{% endfor %}
+    </ol>
+  </div>
+  {% endif %}
+</section>
+
+<div class="trust-grid">
+  <section class="panel trust-card" aria-labelledby="guard-heading">
+    <div class="panel__head">
+      <h2 id="guard-heading" class="panel__title">Python network guard</h2>
+      <p class="pill pill--{{ guard.mode }}">{{ guard.mode }}</p>
+    </div>
+    <p>{{ guard_description }}</p>
+    <p class="muted">Defence-in-depth only: native code does not go through Python's socket layer. The OS enforcement above is the hard guarantee.</p>
+    <dl class="facts">
+      <div><dt>Session</dt><dd><code>{{ guard.session or '—' }}</code></dd></div>
+      <div><dt>Audit log</dt><dd><code class="path">{{ guard.log_path or 'not writable' }}</code></dd></div>
+    </dl>
+    {% if log_error %}<p class="muted">Log write problem: {{ log_error }}</p>{% endif %}
+  </section>
+
+  <section class="panel trust-card trust-card--counter" aria-labelledby="blocked-heading">
+    <div class="panel__head">
+      <h2 id="blocked-heading" class="panel__title">Blocked outbound attempts</h2>
+    </div>
+    <p class="counter" aria-live="polite"><span class="counter__value">{{ blocked_count }}</span> <span class="counter__unit">this session</span></p>
+    <form method="post" action="{{ url_for('trust.try_it') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="button button--primary" type="submit"{% if not try_it_enabled %} disabled aria-describedby="try-off"{% endif %}>Try it: connect to example.com</button>
+    </form>
+    {% if not try_it_enabled %}<p id="try-off" class="muted">Disabled because the guard is not enforcing, so the request would actually go out.</p>{% endif %}
+  </section>
+</div>
+
+<section class="panel" aria-labelledby="attempts-heading">
+  <div class="panel__head"><h2 id="attempts-heading" class="panel__title">Attempt log</h2></div>
+  {% if attempts %}
+  <div class="table-wrap">
+    <table class="ledger ledger--log">
+      <thead><tr><th scope="col">Time (UTC)</th><th scope="col">Call</th><th scope="col">Target</th><th scope="col">Result</th><th scope="col">From</th></tr></thead>
+      <tbody>
+        {% for a in attempts %}
+        <tr>
+          <th scope="row">{{ a.timestamp[11:19] }}</th>
+          <td>{{ a.operation }}</td>
+          <td>{{ a.host }}{% if a.port %}:{{ a.port }}{% endif %}</td>
+          <td class="{{ 'is-allowed' if a.allowed else 'is-blocked' }}">{{ 'allowed (override)' if a.allowed else 'blocked' }}</td>
+          <td class="frame">
+            {% if a.stack %}<details><summary>{{ a.origin.replace('\\', '/').rsplit('/', 1)[-1] }}</summary><ol class="stack">{% for f in a.stack %}<li><code>{{ f }}</code></li>{% endfor %}</ol></details>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">No outbound attempts this session.</p>
+  {% endif %}
+</section>
+
+<section class="panel" aria-labelledby="data-heading">
+  <div class="panel__head">
+    <h2 id="data-heading" class="panel__title">Your data</h2>
+    <form method="post" action="{{ url_for('trust.open_folder') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="button" type="submit">Open data folder</button>
+    </form>
+  </div>
+  <dl class="facts">
+    <div><dt>Data folder</dt><dd><code class="path">{{ data_dir }}</code> <span class="muted">({{ (data_size / 1024)|round(1) }} KB)</span></dd></div>
+    <div><dt>Logs</dt><dd><code class="path">{{ log_dir }}</code></dd></div>
+    <div><dt>Settings</dt><dd><code class="path">{{ config_dir }}</code></dd></div>
+  </dl>
+
+  <div class="data-actions">
+    <form class="data-form" method="post" action="{{ url_for('trust.retention') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <h3 class="data-form__title">Upload retention</h3>
+      <p class="muted">Uploaded CSV files older than this are deleted automatically, on start-up and after each upload. Exports are kept.</p>
+      <label class="select-field select-field--inline">
+        <span class="select-field__label">Keep uploads for</span>
+        <input class="number-input" type="number" name="retention_days" min="{{ retention_min }}" max="{{ retention_max }}" value="{{ retention_days }}" required>
+        <span class="select-field__label">days</span>
+      </label>
+      <button class="button" type="submit">Save</button>
+    </form>
+
+    <form class="data-form data-form--danger" method="post" action="{{ url_for('trust.delete_data') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <h3 class="data-form__title">Delete all my data</h3>
+      <p class="muted">Removes every uploaded file and export, and empties the logs. Settings are kept. This cannot be undone.</p>
+      <label class="check">
+        <input type="checkbox" name="confirm_delete" value="yes" required>
+        <span>I understand this permanently deletes my files</span>
+      </label>
+      <button class="button button--danger" type="submit">Delete all my data</button>
+    </form>
+  </div>
+</section>
+
+<section class="panel" aria-labelledby="build-heading">
+  <div class="panel__head"><h2 id="build-heading" class="panel__title">This build</h2></div>
+  <dl class="facts">
+    <div><dt>Version</dt><dd>{{ version }}</dd></div>
+    <div><dt>Built</dt><dd>{{ build_time }}</dd></div>
+    <div><dt>Commit</dt><dd><code>{{ build_commit }}</code></dd></div>
+    <div><dt>{{ identity.label }}</dt><dd><code class="path">{{ identity.value }}</code></dd></div>
+  </dl>
+  <p class="muted">Compare the hash with <code>SHA256SUMS</code> on the release page.</p>
+</section>
+{% endblock %}

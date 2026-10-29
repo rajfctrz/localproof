@@ -6,7 +6,7 @@ from typing import Any
 
 from flask import Flask
 
-from localproof import __version__, paths
+from localproof import __version__, paths, settings, userdata
 
 from . import security
 
@@ -27,7 +27,13 @@ def create_app(overrides: dict[str, Any] | None = None) -> Flask:
 
     security.init_app(app)
 
+    from . import trust
     from .routes import bp
 
     app.register_blueprint(bp)
+    app.register_blueprint(trust.bp)
+    app.context_processor(lambda: {"trust_badge": trust.badge()})
+
+    # Apply the upload retention policy on every start.
+    userdata.purge_expired_uploads(settings.load().upload_retention_days)
     return app

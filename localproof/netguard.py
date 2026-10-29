@@ -23,6 +23,7 @@ import ipaddress
 import json
 import os
 import socket
+import sysconfig
 import threading
 import traceback
 import uuid
@@ -41,6 +42,9 @@ LOCALHOST_NAMES = frozenset({"localhost"})
 Mode = Literal["off", "enforcing", "audit"]
 
 _THIS_FILE = os.path.abspath(__file__)
+_STDLIB_PREFIXES = tuple(
+    {sysconfig.get_path("stdlib"), sysconfig.get_path("platstdlib")} - {None}
+) or ("<no stdlib>",)
 _SOCKET_METHODS = ("connect", "connect_ex", "sendto", "sendmsg")
 _MODULE_FUNCTIONS = (
     "create_connection",
@@ -75,6 +79,15 @@ class Attempt:
     port: str
     allowed: bool
     stack: tuple[str, ...]
+
+    @property
+    def origin(self) -> str:
+        """Innermost frame outside the standard library: who asked for the connection."""
+        for frame in reversed(self.stack):
+            # site-packages lives under the stdlib dir, but a third-party library is a real origin.
+            if not frame.startswith(_STDLIB_PREFIXES) or "site-packages" in frame:
+                return frame
+        return self.stack[-1] if self.stack else ""
 
 
 @dataclass(frozen=True)

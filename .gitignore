@@ -48,3 +48,4 @@ exports/
 *.swp
 .DS_Store
 Thumbs.db
+localproof/_build_info.py

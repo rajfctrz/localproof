@@ -24,7 +24,7 @@ from flask import (
 from werkzeug.datastructures import FileStorage
 from werkzeug.exceptions import RequestEntityTooLarge
 
-from localproof import paths
+from localproof import opener, paths, settings, userdata
 
 from . import forecast
 
@@ -98,6 +98,7 @@ def _save_upload(upload: FileStorage | None, horizon: int) -> str:
     forecast.forecast_cashflow(forecast.load_cashflow_csv(io.BytesIO(raw)), horizon)
     run_id = uuid.uuid4().hex
     (paths.uploads_dir() / f"{run_id}.csv").write_bytes(raw)
+    userdata.purge_expired_uploads(settings.load().upload_retention_days)
     return run_id
 
 
@@ -139,6 +140,7 @@ def show_forecast(run_id: str):
         rows=result.to_frame().to_dict("records"),
         chart=result.chart_data(),
         export_name=_existing_export(request.args.get("exported")),
+        export_opened=request.args.get("opened"),
         exports_folder=str(paths.exports_dir()),
     )
 
@@ -160,6 +162,22 @@ def download_export(name: str):
     if not EXPORT_NAME_PATTERN.fullmatch(name):
         abort(404)
     return send_from_directory(paths.exports_dir(), name, as_attachment=True)
+
+
+@bp.post("/exports/<name>/open")
+def open_export(name: str):
+    if not EXPORT_NAME_PATTERN.fullmatch(name) or not (paths.exports_dir() / name).is_file():
+        abort(404)
+    ok, _message = opener.open_path(paths.exports_dir() / name)
+    return redirect(
+        url_for(
+            "main.show_forecast",
+            run_id=request.form.get("run_id", SAMPLE_RUN_ID),
+            horizon=request.form.get("horizon", forecast.MAX_HORIZON),
+            exported=name,
+            opened="1" if ok else "0",
+        )
+    )
 
 
 @bp.get("/health")

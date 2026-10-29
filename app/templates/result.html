@@ -34,7 +34,16 @@
 <div class="notice notice--ok" role="status">
   <p class="notice__title">Exported to your data folder</p>
   <p><code class="path">{{ exports_folder }}/{{ export_name }}</code></p>
-  <p><a class="link" href="{{ url_for('main.download_export', name=export_name) }}">Save a copy</a></p>
+  <div class="notice__actions">
+    <form method="post" action="{{ url_for('main.open_export', name=export_name) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="run_id" value="{{ run_id }}">
+      <input type="hidden" name="horizon" value="{{ horizon }}">
+      <button class="button" type="submit">Open in Excel</button>
+    </form>
+    <a class="link" href="{{ url_for('main.download_export', name=export_name) }}">Save a copy elsewhere</a>
+  </div>
+  {% if export_opened == '0' %}<p>Couldn't open it automatically. Open the file from the folder above.</p>{% endif %}
 </div>
 {% endif %}
 

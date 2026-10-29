@@ -29,7 +29,7 @@ def pytest_runtest_call(item):
 
     before = len(netguard.attempts())
     yield
-    if item.path.name == NETGUARD_TESTS:
+    if item.path.name == NETGUARD_TESTS or item.get_closest_marker("expected_outbound"):
         _expected_attempts.update(id(a) for a in netguard.attempts()[before:])
 
 

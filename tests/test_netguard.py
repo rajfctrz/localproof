@@ -184,6 +184,15 @@ def test_requests_blocked():
     assert "netguard blocked" in str(info.value)
 
 
+def test_origin_points_at_third_party_library_not_stdlib():
+    requests = pytest.importorskip("requests")
+    before = len(netguard.attempts())
+    with pytest.raises(requests.exceptions.ConnectionError):
+        requests.get(f"https://{EXTERNAL_HOST}/", timeout=1)
+    attempt = new_attempts(before)[0]
+    assert "site-packages" in attempt.origin and "urllib3" in attempt.origin
+
+
 def test_blocked_error_is_an_oserror_with_clear_message():
     err = OutboundBlockedError("connect", EXTERNAL_IP, 80)
     assert isinstance(err, OSError)
@@ -203,6 +212,7 @@ def test_attempt_is_recorded_in_memory_and_log():
     assert attempt.allowed is False
     assert any("test_attempt_is_recorded_in_memory_and_log" in frame for frame in attempt.stack)
     assert not any(frame.startswith(netguard.__file__ + ":") for frame in attempt.stack)
+    assert "socket.py" not in attempt.origin  # origin skips the stdlib frames
 
     records = netguard.read_log()
     assert records[-1]["event"] == "attempt"

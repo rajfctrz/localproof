@@ -8,6 +8,11 @@
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
+  {% if trust_badge.state == 'dev_override' %}
+  <div class="override-banner" role="alert">
+    <strong>Network override is ON.</strong> LOCALPROOF_ALLOW_NETWORK=1 is set: outbound connections are allowed and only logged. Development use only.
+  </div>
+  {% endif %}
   <header class="masthead">
     <div class="masthead__inner">
       <a class="brand" href="{{ url_for('main.index') }}">
@@ -15,6 +20,11 @@
         <span class="brand__name">LocalProof</span>
       </a>
       <p class="masthead__meta">Cash Flow Forecast <span class="masthead__version">v{{ config.APP_VERSION }}</span></p>
+      <a class="trust-badge trust-badge--{{ trust_badge.state }}" href="{{ url_for('trust.panel') }}" aria-label="Trust Panel: {{ trust_badge.label }}, {{ trust_badge.blocked }} blocked outbound attempts">
+        <span class="trust-badge__dot" aria-hidden="true"></span>
+        <span class="trust-badge__label">{{ trust_badge.label }}</span>
+        <span class="trust-badge__count" title="Blocked outbound attempts">{{ trust_badge.blocked }} blocked</span>
+      </a>
     </div>
   </header>
   <main id="main" class="page">
