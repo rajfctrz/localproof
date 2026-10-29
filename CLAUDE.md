@@ -7,38 +7,42 @@ Open-source boilerplate that turns a Flask app into an installable desktop app w
 **Nothing may make an outbound network call.** No CDNs, telemetry, update checks, font loading, or analytics. Any `https://` in templates or static files is a bug. All front-end assets are vendored into `app/static/vendor/`. Before finishing any task, check with:
 
 ```
-grep -rn "https\?://" app/templates app/static --include=*.html --include=*.css --include=*.js | grep -v vendor/
+grep -rn 'https\?://' app/templates app/static --include='*.html' --include='*.css' --include='*.js' | grep -v vendor/
 ```
 
 ## Stack
 
-Python 3.11+, Flask, waitress, pywebview, platformdirs, pandas/numpy/statsmodels (demo only), Chart.js (vendored), PyInstaller (onedir), Inno Setup, cyclonedx-bom, pytest. Ask before adding any dependency, and justify it in one line.
+Python 3.11+ (dev env uses 3.12), Flask, waitress, pywebview, platformdirs, pandas/numpy/statsmodels (demo only), openpyxl (Excel export), Chart.js (vendored), PyInstaller (onedir; `BUNDLE` on macOS), Inno Setup, create-dmg, appimagetool, flatpak-builder, cyclonedx-bom, pytest. Ask before adding any dependency, and justify it in one line.
 
 ## Layout
 
 - `app/`: Flask app factory, routes, `forecast.py` (pure functions), templates, static
-- `localproof/`: `netguard.py`, `paths.py`, `selfaudit.py`, `launcher.py`
-- `packaging/`: PyInstaller spec, Inno Setup script
+- `localproof/`: `netguard.py`, `paths.py`, `selfaudit.py`, `launcher.py`, `enforcement/` (one provider per OS behind `detect()`)
+- `packaging/`: PyInstaller spec, Inno Setup script, `flatpak/` manifest, AppImage and DMG scripts
 - `sample_data/`, `tests/`, `docs/`, `.github/workflows/`
 
 ## Commands
 
 ```
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements-dev.txt
+conda env create -f environment.yml      # first time (Python 3.12 + requirements-dev.txt)
+conda activate localproof
+pip install -r requirements-dev.txt      # after changing requirements
 flask --app app run                      # browser dev mode (fastest iteration)
 python -m localproof.launcher            # native window mode
 python -m localproof.launcher --self-audit
 pytest -q
-pyinstaller packaging/localproof.spec    # Windows build; runs in CI
+pyinstaller packaging/localproof.spec    # per-OS build; Windows/macOS run in CI
+flatpak-builder --user --install --force-clean build-flatpak packaging/flatpak/<app-id>.yml
 ```
 
-## Development environment
+## Platforms
 
-- Development happens on Ubuntu. Windows is the release target and is built in GitHub Actions.
+- Targets: Windows, macOS (arm64 + x86_64), and Linux (Flatpak + AppImage). Cross-platform rules are in `docs/cross-platform.md`, which overrides the main spec where they differ.
+- Development happens on macOS arm64 (Apple Silicon) in the `localproof` conda env. Windows, macOS x86_64 and Linux builds run in GitHub Actions; CI uses plain pip with the same requirements files.
 - pywebview on Linux needs GTK or Qt system packages. If the window fails to open, say which package is missing; don't silently switch backends.
-- Anything Windows-only (firewall rule via netsh, `os.startfile`, Inno Setup, exe hashing) must be behind a platform check, and must degrade gracefully on Linux and macOS with a clear "not available on this OS" status.
-- When something can only be verified on Windows, list the exact manual steps and expected output instead of claiming it works.
+- All OS-specific code lives behind `localproof/enforcement/` or an explicit platform check. Never assume Windows.
+- Enforcement tier must be reported truthfully. Only Windows (firewall rule present) and Flatpak (no network permission) count as `enforced`. Everything else is `guard_only`.
+- macOS arm64 can be verified locally. When something can only be verified on Windows, Linux (GTK window, Flatpak, AppImage) or macOS x86_64, list the exact manual steps and expected output instead of claiming it works.
 
 ## Conventions
 
@@ -51,11 +55,11 @@ pyinstaller packaging/localproof.spec    # Windows build; runs in CI
 
 ## Honesty in docs
 
-- The Python socket guard is defence-in-depth and can be bypassed by native extensions. The firewall rule is the real enforcement.
+- The Python socket guard is defence-in-depth and can be bypassed by native extensions. OS-level enforcement (Windows Firewall rule, Flatpak's network-less sandbox) is the real guarantee; macOS and AppImage have none, and the docs must say so.
 - Never write README or SECURITY.md claims the code doesn't back up. When in doubt, state the limitation.
 
 ## Workflow
 
-- Work in the phase order given in the spec. Finish each phase with tests passing and the app running before starting the next.
-- After each phase, give a 3–5 line summary: what was built, what was verified, and what still needs a manual Windows check.
+- Work in the phase order given in `docs/cross-platform.md` (it replaces the main spec's order). Finish each phase with tests passing and the app running before starting the next.
+- After each phase, give a 3–5 line summary: what was built, what was verified, and what still needs a manual Windows/Linux/macOS-x86_64 check.
 - Commit after each phase with a clear message.

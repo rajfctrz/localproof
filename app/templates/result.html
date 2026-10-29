@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Forecast{% endblock %}
+{% block content %}
+{% set total = result.forecast.sum() %}
+{% set peak_month = result.forecast.idxmax() %}
+{% set low_month = result.forecast.idxmin() %}
+<section class="intro intro--result" aria-labelledby="result-heading">
+  <p class="eyebrow">{{ 'Sample data' if is_sample else 'Your data' }} · {{ result.history|length }} months of history</p>
+  <h1 id="result-heading" class="display">Next {{ horizon }} months</h1>
+  <dl class="figures">
+    <div class="figure figure--lead">
+      <dt>Projected net cash</dt>
+      <dd class="figure__value">{{ total|money }}</dd>
+      <dd class="figure__note">Sum of monthly forecasts</dd>
+    </div>
+    <div class="figure">
+      <dt>Monthly average</dt>
+      <dd class="figure__value">{{ (total / horizon)|money }}</dd>
+    </div>
+    <div class="figure">
+      <dt>Strongest month</dt>
+      <dd class="figure__value">{{ peak_month.strftime('%b %Y') }}</dd>
+      <dd class="figure__note">{{ result.forecast.max()|money }}</dd>
+    </div>
+    <div class="figure">
+      <dt>Weakest month</dt>
+      <dd class="figure__value">{{ low_month.strftime('%b %Y') }}</dd>
+      <dd class="figure__note">{{ result.forecast.min()|money }}</dd>
+    </div>
+  </dl>
+</section>
+
+{% if export_name %}
+<div class="notice notice--ok" role="status">
+  <p class="notice__title">Exported to your data folder</p>
+  <p><code class="path">{{ exports_folder }}/{{ export_name }}</code></p>
+  <p><a class="link" href="{{ url_for('main.download_export', name=export_name) }}">Save a copy</a></p>
+</div>
+{% endif %}
+
+<section class="panel" aria-labelledby="chart-heading">
+  <div class="panel__head">
+    <h2 id="chart-heading" class="panel__title">Monthly net cash flow</h2>
+    <ul class="legend" aria-hidden="true">
+      <li class="legend__item legend__item--actual">Actual</li>
+      <li class="legend__item legend__item--forecast">Forecast</li>
+      <li class="legend__item legend__item--band">{{ (result.confidence * 100)|round|int }}% band</li>
+    </ul>
+  </div>
+  <figure class="chart">
+    <canvas id="forecast-chart" role="img" aria-label="Line chart of monthly actuals and forecast with prediction band. The table below lists every value."></canvas>
+  </figure>
+  <script id="chart-data" type="application/json">{{ chart|tojson }}</script>
+</section>
+
+<section class="panel" aria-labelledby="table-heading">
+  <div class="panel__head">
+    <h2 id="table-heading" class="panel__title">Figures</h2>
+    <div class="panel__tools">
+      <form method="get" action="{{ url_for('main.show_forecast', run_id=run_id) }}" class="inline-form">
+        <label class="select-field select-field--inline">
+          <span class="select-field__label">Horizon</span>
+          <select name="horizon">
+            {% for h in horizons %}<option value="{{ h }}"{% if h == horizon %} selected{% endif %}>{{ h }} months</option>{% endfor %}
+          </select>
+        </label>
+        <button class="button" type="submit">Update</button>
+      </form>
+      <form method="post" action="{{ url_for('main.export_forecast', run_id=run_id) }}" class="inline-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="horizon" value="{{ horizon }}">
+        <button class="button button--primary" type="submit">Export to Excel</button>
+      </form>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table class="ledger">
+      <thead>
+        <tr><th scope="col">Month</th><th scope="col">Actual</th><th scope="col">Forecast</th><th scope="col">Low</th><th scope="col">High</th></tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr class="{{ 'is-forecast' if row.forecast is number and row.forecast == row.forecast else '' }}{{ ' is-first-forecast' if loop.index0 == result.history|length else '' }}">
+          <th scope="row">{{ row.month.strftime('%b %Y') }}</th>
+          <td>{{ row.actual|money }}</td>
+          <td>{{ row.forecast|money }}</td>
+          <td>{{ row.lower|money }}</td>
+          <td>{{ row.upper|money }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<p class="back"><a class="link" href="{{ url_for('main.index') }}">← Start over with other data</a></p>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='vendor/chart.umd.js') }}"></script>
+<script src="{{ url_for('static', filename='js/forecast-chart.js') }}"></script>
+{% endblock %}

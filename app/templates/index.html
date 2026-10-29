@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="intro" aria-labelledby="intro-heading">
+  <p class="eyebrow">Statement of projected cash</p>
+  <h1 id="intro-heading" class="display">Where will cash be in a year?</h1>
+  <p class="lede">Upload monthly cash flow and get a Holt-Winters forecast for the next 6 to 12 months, with a 95% prediction band. Seasonality needs at least {{ min_months }} months of history.</p>
+</section>
+
+{% if error %}
+<div class="notice notice--error" role="alert">
+  <p class="notice__title">Couldn't run the forecast</p>
+  <p>{{ error }}</p>
+</div>
+{% endif %}
+
+<form class="ledger-form" method="post" action="{{ url_for('main.start_forecast') }}" enctype="multipart/form-data">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+  <fieldset class="ledger-form__group">
+    <legend class="ledger-form__legend"><span class="step">1</span> Data</legend>
+    <div class="source-choice">
+      <label class="source-option">
+        <input type="radio" name="source" value="upload" checked>
+        <span class="source-option__body">
+          <span class="source-option__title">Your CSV</span>
+          <span class="source-option__hint">Columns <code>date</code> and <code>amount</code>. Rows are summed per month.</span>
+        </span>
+      </label>
+      <label class="source-option">
+        <input type="radio" name="source" value="sample">
+        <span class="source-option__body">
+          <span class="source-option__title">Sample data</span>
+          <span class="source-option__hint">36 months, synthetic, with seasonality.</span>
+        </span>
+      </label>
+    </div>
+    <label class="file-field">
+      <span class="file-field__label">CSV file</span>
+      <input type="file" name="csv_file" accept=".csv,text/csv">
+    </label>
+  </fieldset>
+
+  <fieldset class="ledger-form__group">
+    <legend class="ledger-form__legend"><span class="step">2</span> Horizon</legend>
+    <label class="select-field">
+      <span class="select-field__label">Months to forecast</span>
+      <select name="horizon">
+        {% for h in horizons %}<option value="{{ h }}"{% if h == default_horizon %} selected{% endif %}>{{ h }} months</option>{% endfor %}
+      </select>
+    </label>
+  </fieldset>
+
+  <div class="ledger-form__actions">
+    <button class="button button--primary" type="submit">Run forecast</button>
+  </div>
+</form>
+{% endblock %}

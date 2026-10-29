@@ -1,0 +1,10 @@
+# Runtime dependencies (bundled into the desktop app)
+flask==3.1.3
+waitress==3.0.2
+pywebview==6.2.1
+platformdirs==4.14.0
+# Demo forecast only
+pandas==3.1.0
+numpy==2.5.4
+statsmodels==0.15.0
+openpyxl==3.1.5

@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Cash Flow Forecast{% endblock %} · LocalProof</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="masthead">
+    <div class="masthead__inner">
+      <a class="brand" href="{{ url_for('main.index') }}">
+        <span class="brand__mark" aria-hidden="true">LP</span>
+        <span class="brand__name">LocalProof</span>
+      </a>
+      <p class="masthead__meta">Cash Flow Forecast <span class="masthead__version">v{{ config.APP_VERSION }}</span></p>
+    </div>
+  </header>
+  <main id="main" class="page">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="colophon">
+    <p>Runs on this computer. Your files are stored in your user data folder, never in the app folder.</p>
+  </footer>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
