@@ -8,3 +8,8 @@ pandas==3.1.0
 numpy==2.5.4
 statsmodels==0.15.0
 openpyxl==3.1.5
+# Linux native window (pywebview GTK backend). 3.50.x is the last line that builds
+# against girepository-1.0, which Ubuntu 22.04 (the AppImage build host) ships.
+# Not used in the Flatpak, which takes PyGObject from the GNOME runtime.
+PyGObject==3.50.1; sys_platform == "linux"
+pycairo==1.28.0; sys_platform == "linux"
