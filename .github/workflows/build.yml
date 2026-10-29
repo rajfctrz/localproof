@@ -1,0 +1,300 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.12"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install (plain venv from requirements files)
+        run: |
+          python -m venv .venv
+          .venv\Scripts\python -m pip install -r requirements-dev.txt
+
+      - name: Tests (whole suite runs under the enforcing netguard)
+        run: .venv\Scripts\python -m pytest -q
+
+      - name: PyInstaller build
+        run: |
+          .venv\Scripts\python packaging\write_build_info.py
+          .venv\Scripts\pyinstaller --noconfirm packaging\localproof.spec
+
+      - name: Frozen exe checks (uninstalled => no firewall rule => guard only)
+        run: |
+          $exe = "dist\LocalProof\LocalProof.exe"
+          $env:LOCALPROOF_HOME = "$env:RUNNER_TEMP\lp-frozen"
+          scripts\ci\run_expect.ps1 -Exe $exe -Expect 0 -AppArgs '--version' -MustContain 'LocalProof'
+          scripts\ci\run_expect.ps1 -Exe $exe -Expect 0 -AppArgs '--serve-smoke' -MustContain 'serve smoke ok'
+          scripts\ci\run_expect.ps1 -Exe $exe -Expect 2 -AppArgs '--self-audit' -MustContain 'firewall rule is missing'
+
+      - name: Native window (WebView2)
+        run: scripts\ci\run_expect.ps1 -Exe dist\LocalProof\LocalProof.exe -Expect 0 -AppArgs '--window-smoke' -MustContain 'window smoke ok'
+
+      - name: Code signing (placeholder, disabled by default)
+        # To enable: add WINDOWS_CERT_PFX (base64) and WINDOWS_CERT_PASSWORD secrets and set
+        # repository variable SIGNING_ENABLED=true, then sign LocalProof.exe here with signtool
+        # (and the installer after the Inno Setup step).
+        if: ${{ vars.SIGNING_ENABLED == 'true' }}
+        run: echo "signtool sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /f cert.pfx dist\LocalProof\LocalProof.exe"
+
+      - name: Inno Setup installer
+        run: |
+          choco install innosetup -y --no-progress
+          $version = (.venv\Scripts\python -c "import localproof; print(localproof.__version__)").Trim()
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$version" packaging\installer.iss
+          "VERSION=$version" | Out-File -Append $env:GITHUB_ENV
+
+      - name: Install silently and verify the firewall rule is enforced
+        run: |
+          $setup = "dist\installer\LocalProof-Setup-$env:VERSION.exe"
+          $p = Start-Process $setup -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/CURRENTUSER','/NORESTART',"/LOG=$env:RUNNER_TEMP\install.log" -Wait -PassThru
+          Get-Content "$env:RUNNER_TEMP\install.log" | Select-String -Pattern 'netsh'
+          if ($p.ExitCode -ne 0) { throw "installer exit code $($p.ExitCode)" }
+          netsh advfirewall firewall show rule name="LocalProof - block outbound" verbose
+          if ($LASTEXITCODE -ne 0) { throw "firewall rule not found after install" }
+          netsh advfirewall show allprofiles state
+          $exe = "$env:LOCALAPPDATA\Programs\LocalProof\LocalProof.exe"
+          $env:LOCALPROOF_HOME = $null
+          scripts\ci\run_expect.ps1 -Exe $exe -Expect 0 -AppArgs '--self-audit' -MustContain 'ENFORCED'
+          # Guard overridden: only the firewall can stop this one.
+          $env:LOCALPROOF_ALLOW_NETWORK = "1"
+          scripts\ci\run_expect.ps1 -Exe $exe -Expect 0 -AppArgs '--probe-outbound' -MustContain 'result: blocked_by_os'
+          $env:LOCALPROOF_ALLOW_NETWORK = $null
+          (Get-FileHash $exe -Algorithm SHA256).Hash.ToLower() + "  LocalProof.exe" | Out-File -Encoding ascii dist\installer\LocalProof.exe.sha256
+
+      - name: Uninstall removes the rule and keeps user data
+        run: |
+          $p = Start-Process "$env:LOCALAPPDATA\Programs\LocalProof\unins000.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
+          Start-Sleep -Seconds 3
+          netsh advfirewall firewall show rule name="LocalProof - block outbound" | Out-Null
+          if ($LASTEXITCODE -eq 0) { throw "firewall rule still present after uninstall" }
+          if (-not (Test-Path "$env:LOCALAPPDATA\LocalProof")) { throw "user data folder was removed" }
+          Write-Output "rule removed; user data folder kept at $env:LOCALAPPDATA\LocalProof"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: |
+            dist/installer/*.exe
+            dist/installer/*.sha256
+
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14
+            arch: arm64
+          - runner: macos-15-intel
+            arch: x86_64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install (plain venv from requirements files)
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install -r requirements-dev.txt
+
+      - name: Tests
+        run: .venv/bin/python -m pytest -q
+
+      - name: PyInstaller build (.app)
+        run: |
+          .venv/bin/python packaging/write_build_info.py
+          .venv/bin/pyinstaller --noconfirm packaging/localproof.spec
+          test "$(uname -m)" = "${{ matrix.arch }}"
+
+      - name: Frozen app checks (macOS is guard only => exit 2)
+        env:
+          LOCALPROOF_HOME: ${{ runner.temp }}/lp-frozen
+        run: |
+          BIN=dist/LocalProof.app/Contents/MacOS/LocalProof
+          scripts/ci/expect.sh 0 --contains "serve smoke ok" -- "$BIN" --serve-smoke
+          scripts/ci/expect.sh 2 --contains "GUARD ONLY" -- "$BIN" --self-audit
+          scripts/ci/expect.sh 0 --contains "window smoke ok" -- "$BIN" --window-smoke
+
+      - name: Code signing and notarization (placeholder, disabled by default)
+        # To enable: add MACOS_CERT_P12, MACOS_CERT_PASSWORD, APPLE_ID, APPLE_TEAM_ID and
+        # APPLE_APP_PASSWORD secrets and set repository variable SIGNING_ENABLED=true.
+        if: ${{ vars.SIGNING_ENABLED == 'true' }}
+        run: |
+          echo codesign --deep --force --options runtime --timestamp --sign "Developer ID Application: ..." dist/LocalProof.app
+          echo xcrun notarytool submit dist/*.dmg --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD" --wait
+          echo xcrun stapler staple dist/*.dmg
+
+      - name: DMG
+        env:
+          DMG_SKIP_FINDER: "1"
+          PYTHON: .venv/bin/python
+        run: |
+          brew install create-dmg
+          packaging/macos/make_dmg.sh
+          packaging/macos/verify_dmg.sh dist/LocalProof-*-macos-${{ matrix.arch }}.dmg
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ matrix.arch }}
+          path: dist/*.dmg
+
+  appimage:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: System packages (GTK 3, WebKit2GTK 4.1, PyGObject build deps, Xvfb)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgirepository1.0-dev libcairo2-dev pkg-config gir1.2-gtk-3.0 gir1.2-webkit2-4.1 \
+            xvfb dbus-x11 file
+
+      - name: Install (plain venv from requirements files)
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install -r requirements-dev.txt
+
+      - name: Tests
+        run: .venv/bin/python -m pytest -q
+
+      - name: PyInstaller build
+        run: |
+          .venv/bin/python packaging/write_build_info.py
+          .venv/bin/pyinstaller --noconfirm packaging/localproof.spec
+
+      - name: Frozen build checks (no sandbox => guard only)
+        env:
+          LOCALPROOF_HOME: ${{ runner.temp }}/lp-frozen
+        run: |
+          scripts/ci/expect.sh 0 --contains "serve smoke ok" -- dist/LocalProof/LocalProof --serve-smoke
+          scripts/ci/expect.sh 2 --contains "GUARD ONLY" -- dist/LocalProof/LocalProof --self-audit
+          scripts/ci/expect.sh 0 --contains "window smoke ok" -- dbus-run-session -- xvfb-run -a dist/LocalProof/LocalProof --window-smoke
+
+      - name: AppImage
+        env:
+          PYTHON: .venv/bin/python
+        run: |
+          curl -fsSL -o appimagetool https://github.com/AppImage/appimagetool/releases/download/1.9.0/appimagetool-x86_64.AppImage
+          sha256sum appimagetool
+          chmod +x appimagetool
+          APPIMAGETOOL=./appimagetool packaging/linux/build_appimage.sh
+
+      - name: Run the AppImage
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+          LOCALPROOF_HOME: ${{ runner.temp }}/lp-appimage
+        run: |
+          IMG=$(ls dist/LocalProof-*-x86_64.AppImage)
+          scripts/ci/expect.sh 0 --contains "serve smoke ok" -- "$IMG" --serve-smoke
+          scripts/ci/expect.sh 2 --contains "AppImage" -- "$IMG" --self-audit
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-appimage
+          path: dist/*.AppImage
+
+  flatpak:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-50
+      options: --privileged
+    env:
+      APP_ID: io.github.OWNER.LocalProof
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and install
+        run: |
+          flatpak-builder --user --install --force-clean --disable-rofiles-fuse \
+            build-flatpak packaging/flatpak/${APP_ID}.yml
+          flatpak build-bundle ~/.local/share/flatpak/repo LocalProof.flatpak ${APP_ID}
+
+      - name: Permissions contain no network access
+        run: |
+          flatpak info --user --show-permissions ${APP_ID} | tee permissions.txt
+          if grep -E '^shared=.*network' permissions.txt; then echo "network permission found" >&2; exit 1; fi
+
+      - name: Sandbox checks (Flatpak without network => enforced)
+        run: |
+          scripts/ci/expect.sh 0 --contains "ENFORCED" -- dbus-run-session -- flatpak run --user ${APP_ID} --self-audit
+          scripts/ci/expect.sh 0 --contains "serve smoke ok" -- dbus-run-session -- flatpak run --user ${APP_ID} --serve-smoke
+          # Guard overridden: only the sandbox can stop this one.
+          scripts/ci/expect.sh 0 --contains "result: no_network" -- \
+            dbus-run-session -- flatpak run --user --env=LOCALPROOF_ALLOW_NETWORK=1 ${APP_ID} --probe-outbound
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-flatpak
+          path: LocalProof.flatpak
+
+  release:
+    needs: [windows, macos, appimage, flatpak]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: SBOM (CycloneDX, from the runtime requirements)
+        run: |
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends libgirepository1.0-dev libcairo2-dev pkg-config
+          python -m venv sbom-env
+          sbom-env/bin/python -m pip install -r requirements.txt
+          python -m venv tool-env
+          tool-env/bin/python -m pip install "$(grep -i '^cyclonedx-bom' requirements-dev.txt)"
+          tool-env/bin/cyclonedx-py environment --output-format JSON --output-file artifacts/localproof-sbom.cdx.json sbom-env/bin/python
+
+      - name: SHA256SUMS
+        run: |
+          cd artifacts
+          sha256sum $(ls | grep -v -e '^SHA256SUMS$' -e '\.sha256$') > SHA256SUMS
+          cat *.sha256 >> SHA256SUMS
+          cat SHA256SUMS
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-bundle
+          path: artifacts/
+
+      - name: Draft release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" --draft --title "LocalProof ${GITHUB_REF_NAME}" --notes "See SHA256SUMS and the SBOM. Verify with --self-audit." artifacts/*
