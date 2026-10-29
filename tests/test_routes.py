@@ -186,6 +186,25 @@ def test_malformed_csv_is_400_not_500(app, client):
     assert response.status_code == 400
 
 
+def test_default_upload_limit_is_10_mb(app):
+    assert app.config["MAX_CONTENT_LENGTH"] == 10 * 1024 * 1024
+
+
+def test_upload_over_default_limit_gets_friendly_error(client):
+    token = csrf(client)
+    data = {
+        "source": "upload",
+        "horizon": "6",
+        "csrf_token": token,
+        "csv_file": (io.BytesIO(b"x" * (10 * 1024 * 1024 + 1)), "huge.csv"),
+    }
+    response = client.post("/forecast", data=data, content_type="multipart/form-data")
+    assert response.status_code == 413
+    page = response.get_data(as_text=True)
+    assert "larger than 10 MB" in page
+    assert 'name="csv_file"' in page  # back on the form, not a bare error page
+
+
 def test_upload_too_large(app, client):
     app.config["MAX_CONTENT_LENGTH"] = 1024
     data = {

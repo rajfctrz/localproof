@@ -1,4 +1,6 @@
 -r requirements.txt
 pytest==9.2.0
+# Dev/test only: proves netguard also blocks the most common third-party HTTP client.
+requests==2.34.2
 pyinstaller==6.22.3
 cyclonedx-bom==7.6.0

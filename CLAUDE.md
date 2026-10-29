@@ -24,9 +24,14 @@ Python 3.11+ (dev env uses 3.12), Flask, waitress, pywebview, platformdirs, pand
 ## Commands
 
 ```
-conda env create -f environment.yml      # first time (Python 3.12 + requirements-dev.txt)
+# local dev (conda is a convenience for getting Python 3.12; nothing else depends on it)
+conda env create -f environment.yml      # first time: Python 3.12 + requirements-dev.txt
 conda activate localproof
 pip install -r requirements-dev.txt      # after changing requirements
+
+# builds and CI: plain venv, same requirements files
+python3.12 -m venv .venv && source .venv/bin/activate
+pip install -r requirements-dev.txt
 flask --app app run                      # browser dev mode (fastest iteration)
 python -m localproof.launcher            # native window mode
 python -m localproof.launcher --self-audit
@@ -38,7 +43,8 @@ flatpak-builder --user --install --force-clean build-flatpak packaging/flatpak/<
 ## Platforms
 
 - Targets: Windows, macOS (arm64 + x86_64), and Linux (Flatpak + AppImage). Cross-platform rules are in `docs/cross-platform.md`, which overrides the main spec where they differ.
-- Development happens on macOS arm64 (Apple Silicon) in the `localproof` conda env. Windows, macOS x86_64 and Linux builds run in GitHub Actions; CI uses plain pip with the same requirements files.
+- Development happens on macOS arm64 (Apple Silicon) in the `localproof` conda env. Windows, macOS x86_64 and Linux builds run in GitHub Actions.
+- `requirements.txt` (runtime) and `requirements-dev.txt` (tests + build tools) are the single source of truth for dependencies. Builds and CI install them into a plain `venv`; conda is local-dev only and `environment.yml` just points pip at `requirements-dev.txt`. Never add a dependency only to `environment.yml`.
 - pywebview on Linux needs GTK or Qt system packages. If the window fails to open, say which package is missing; don't silently switch backends.
 - All OS-specific code lives behind `localproof/enforcement/` or an explicit platform check. Never assume Windows.
 - Enforcement tier must be reported truthfully. Only Windows (firewall rule present) and Flatpak (no network permission) count as `enforced`. Everything else is `guard_only`.

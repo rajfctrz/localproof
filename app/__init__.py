@@ -10,7 +10,7 @@ from localproof import __version__, paths
 
 from . import security
 
-MAX_UPLOAD_BYTES = 5 * 1024 * 1024
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
 
 def create_app(overrides: dict[str, Any] | None = None) -> Flask:
